@@ -1,0 +1,157 @@
+version: '3.8'
+
+services:
+  crdb-client:
+    container_name: crdbclient
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    depends_on:
+      - "crdb1"
+      - "crdb2"
+      - "crdb3"
+      - "crdb-init"
+    command: "nodemon --watch . -e go --ignore '*_test.go' --delay 600ms --signal 'SIGTERM' --exec 'make run || exit 1'"
+    volumes:
+      - type: bind
+        source: ../packages/crdbclient
+        target: /opt/app
+
+#  KAFKA -------------------------------
+
+#  kafka0:
+#    image: docker.io/bitnami/kafka:latest
+#    container_name: kafka0
+#    hostname: kafka0
+#    platform: linux/amd64
+#    restart: on-failure
+#    environment:
+#      - KAFKA_ENABLE_KRAFT=yes
+#      - KAFKA_CFG_PROCESS_ROLES=broker,controller
+#      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+#      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
+#      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+#      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka0:9092
+#      - KAFKA_CFG_BROKER_ID=1
+#      - KAFKA_CFG_NODE_ID=1
+#      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka0:9093,2@kafka1:9093,3@kafka2:9093
+#      - ALLOW_PLAINTEXT_LISTENER=yes
+#      - KAFKA_KRAFT_CLUSTER_ID=L0ZEQh1yTbGhNNUE7-6wSQ
+#    volumes:
+#      - ./volumes/kafka/data_0:/bitnami/kafka
+#
+#  kafka1:
+#    image: docker.io/bitnami/kafka:latest
+#    container_name: kafka1
+#    hostname: kafka1
+#    platform: linux/amd64
+#    restart: on-failure
+#    environment:
+#      - KAFKA_ENABLE_KRAFT=yes
+#      - KAFKA_CFG_PROCESS_ROLES=broker,controller
+#      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+#      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
+#      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+#      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka1:9092
+#      - KAFKA_CFG_BROKER_ID=2
+#      - KAFKA_CFG_NODE_ID=2
+#      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka0:9093,2@kafka1:9093,3@kafka2:9093
+#      - ALLOW_PLAINTEXT_LISTENER=yes
+#      - KAFKA_KRAFT_CLUSTER_ID=L0ZEQh1yTbGhNNUE7-6wSQ
+#    volumes:
+#      - ./volumes/kafka/data_1:/bitnami/kafka
+#
+#  kafka2:
+#    image: docker.io/bitnami/kafka:latest
+#    container_name: kafka2
+#    hostname: kafka2
+#    platform: linux/amd64
+#    restart: on-failure
+#    environment:
+#      - KAFKA_ENABLE_KRAFT=yes
+#      - KAFKA_CFG_PROCESS_ROLES=broker,controller
+#      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+#      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
+#      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+#      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka2:9092
+#      - KAFKA_CFG_BROKER_ID=3
+#      - KAFKA_CFG_NODE_ID=3
+#      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka0:9093,2@kafka1:9093,3@kafka2:9093
+#      - ALLOW_PLAINTEXT_LISTENER=yes
+#      - KAFKA_KRAFT_CLUSTER_ID=L0ZEQh1yTbGhNNUE7-6wSQ
+#    volumes:
+#      - ./volumes/kafka/data_2:/bitnami/kafka
+#
+#  kafka-ui:
+#    image: provectuslabs/kafka-ui:latest
+#    ports:
+#      - "8080:8080"
+#    environment:
+#      - KAFKA_CLUSTERS_0_BOOTSTRAP_SERVERS=kafka1:9092
+#      - KAFKA_CLUSTERS_0_NAME=kraft
+
+  crdb1:
+    image: cockroachdb/cockroach:latest
+    container_name: crdb1
+    hostname: crdb1
+    restart: on-failure
+    ports:
+      - "26257:26257"
+      - "8080:8080"
+    command:
+      - start
+      - --advertise-addr=crdb1:26357
+      - --http-addr=crdb1:8080
+      - --listen-addr=crdb1:26357
+      - --sql-addr=crdb1:26257
+      - --insecure
+      - --join=crdb1:26357,crdb2:26357,crdb3:26357
+    volumes:
+      - ./volumes/crdb/node1:/cockroach/cockroach-data
+
+  crdb2:
+    image: cockroachdb/cockroach:latest
+    container_name: crdb2
+    hostname: crdb2
+    restart: on-failure
+    ports:
+      - "26258:26258"
+      - "8081:8081"
+    command:
+      - start
+      - --advertise-addr=crdb2:26357
+      - --http-addr=crdb2:8081
+      - --listen-addr=crdb2:26357
+      - --sql-addr=crdb2:26258
+      - --insecure
+      - --join=crdb1:26357,crdb2:26357,crdb3:26357
+    volumes:
+      - ./volumes/crdb/node2:/cockroach/cockroach-data
+
+  crdb3:
+    image: cockroachdb/cockroach:latest
+    container_name: crdb3
+    hostname: crdb3
+    restart: on-failure
+    ports:
+      - "26259:26259"
+      - "8082:8082"
+    command:
+      - start
+      - --advertise-addr=crdb3:26357
+      - --http-addr=crdb3:8082
+      - --listen-addr=crdb3:26357
+      - --sql-addr=crdb3:26259
+      - --insecure
+      - --join=crdb1:26357,crdb2:26357,crdb3:26357
+    volumes:
+      - ./volumes/crdb/node3:/cockroach/cockroach-data
+
+  crdb-init:
+    image: cockroachdb/cockroach:latest
+    container_name: crdb-init
+    command: bash -c "./cockroach --host=crdb1:26357 init --insecure"
+    depends_on:
+      - "crdb1"
+      - "crdb2"
+      - "crdb3"
